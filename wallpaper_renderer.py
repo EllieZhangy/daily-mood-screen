@@ -5,7 +5,13 @@ from datetime import date
 
 from PIL import Image, ImageDraw, ImageFont
 
-from quote_generator import generate_quote, load_context, load_weather, resolve_weather
+from mood_engine import determine_mood
+from quote_generator import (
+    generate_quote,
+    load_context,
+    load_photos, resolve_photos,
+    load_weather, resolve_weather,
+)
 
 # ── Canvas (fixed — these are the target screen dimensions, not style choices) ─
 WIDTH  = 2560
@@ -157,8 +163,43 @@ def format_weather_str(weather: dict) -> str:
     return " · ".join(parts)
 
 
+# ── Photos string builder ─────────────────────────────────────────────────────
+def format_photos_str(photos: dict) -> str:
+    """
+    Build the photos metadata line shown below the weather line.
+
+    Examples:
+      theme=friends, count=6  →  "Friends · 6 Photos"
+      theme=none, count=0     →  ""  (nothing drawn)
+    """
+    theme = photos.get("theme", "none")
+    count = photos.get("photo_count", 0)
+
+    parts = []
+    if theme and theme != "none":
+        parts.append(theme.capitalize())
+    if count:
+        parts.append(f"{count} Photos")
+
+    return " · ".join(parts)
+
+
+# ── Mood string builder ───────────────────────────────────────────────────────
+def format_mood_str(mood: dict) -> str:
+    """
+    Build the mood metadata line shown below the photos line.
+    "cold_reunion" → "Mood · Cold Reunion"
+    Returns empty string if mood is empty.
+    """
+    mood_name = mood.get("mood", "")
+    if not mood_name:
+        return ""
+    label = mood_name.replace("_", " ").title()
+    return f"Mood · {label}"
+
+
 # ── Main render ───────────────────────────────────────────────────────────────
-def render_wallpaper(quote: str, context: dict, style: dict, weather: dict | None = None, output_path: str = OUTPUT_PATH) -> None:
+def render_wallpaper(quote: str, context: dict, style: dict, weather: dict | None = None, photos: dict | None = None, mood: dict | None = None, output_path: str = OUTPUT_PATH) -> None:
     # ── Read every value from style ───────────────────────────────────────────
     font_cfg   = style.get("font", {})
     layout_cfg = style.get("layout", {})
@@ -181,10 +222,13 @@ def render_wallpaper(quote: str, context: dict, style: dict, weather: dict | Non
     theme = THEMES.get(theme_name, THEMES["warm_light"])
 
     # ── Build display strings ─────────────────────────────────────────────────
-    # resolve_weather picks weather.json data if provided, else falls back to context.json
     resolved_weather = resolve_weather(context, weather)
+    resolved_photos  = resolve_photos(context, photos)
+    resolved_mood    = mood if mood is not None else determine_mood(resolved_weather, resolved_photos)
     today_str        = date.today().strftime("%Y · %m · %d")
     weather_str      = format_weather_str(resolved_weather)
+    photos_str       = format_photos_str(resolved_photos)    # empty string if no photos
+    mood_str         = format_mood_str(resolved_mood)        # empty string if no mood
 
     # ── Fonts ─────────────────────────────────────────────────────────────────
     font_quote = get_font(font_name, quote_size)
@@ -203,12 +247,20 @@ def render_wallpaper(quote: str, context: dict, style: dict, weather: dict | Non
 
     date_h    = measure_h(draw, today_str,   font_meta)
     weather_h = measure_h(draw, weather_str, font_meta)
+    photos_h  = measure_h(draw, photos_str,  font_meta) if photos_str else 0
+    mood_h    = measure_h(draw, mood_str,    font_meta) if mood_str   else 0
     quote_h   = (
         sum(measure_h(draw, line, font_quote) for line in quote_lines)
         + line_gap * (len(quote_lines) - 1)
     )
 
-    total_h = date_h + meta_line_gap + weather_h + meta_gap + quote_h
+    total_h = (
+        date_h + meta_line_gap
+        + weather_h
+        + (meta_line_gap + photos_h if photos_str else 0)
+        + (meta_line_gap + mood_h   if mood_str   else 0)
+        + meta_gap + quote_h
+    )
 
     # ── Alignment anchor and x position ──────────────────────────────────────
     if alignment == "left":
@@ -227,7 +279,21 @@ def render_wallpaper(quote: str, context: dict, style: dict, weather: dict | Non
 
     # ── Draw weather ──────────────────────────────────────────────────────────
     draw.text((x, y), weather_str, font=font_meta, fill=theme["meta"], anchor=anchor)
-    y += weather_h + meta_gap
+    y += weather_h
+
+    # ── Draw photos line (skipped when empty) ────────────────────────────────
+    if photos_str:
+        y += meta_line_gap
+        draw.text((x, y), photos_str, font=font_meta, fill=theme["meta"], anchor=anchor)
+        y += photos_h
+
+    # ── Draw mood line (skipped when empty) ───────────────────────────────────
+    if mood_str:
+        y += meta_line_gap
+        draw.text((x, y), mood_str, font=font_meta, fill=theme["meta"], anchor=anchor)
+        y += mood_h
+
+    y += meta_gap
 
     # ── Draw quote ────────────────────────────────────────────────────────────
     for i, line in enumerate(quote_lines):
@@ -265,6 +331,19 @@ def main():
     else:
         print("Weather  : weather.json not found, using context.json fallback")
 
+    # Try to load photos.json; fall back to context.json["photos"] if missing
+    photos_data = load_photos()
+    if photos_data is not None:
+        print("Photos   : loaded from photos.json")
+    else:
+        print("Photos   : photos.json not found, using context.json fallback")
+
+    # Determine mood from resolved weather + photos
+    weather  = resolve_weather(context, weather_data)
+    photos   = resolve_photos(context, photos_data)
+    mood     = determine_mood(weather, photos)
+    print(f"Mood     : {mood['mood']}  ({', '.join(mood['emotion_keywords'])})")
+
     api_key = os.environ.get("OPENAI_API_KEY", "").strip()
     if not api_key:
         print("Error: OPENAI_API_KEY is not set.")
@@ -272,11 +351,11 @@ def main():
         sys.exit(1)
 
     print("Generating quote...")
-    quote = generate_quote(context, api_key, weather=weather_data)
+    quote = generate_quote(context, api_key, weather=weather_data, photos=photos_data, mood=mood)
     print(f"  {quote}\n")
 
     print("Rendering wallpaper...")
-    render_wallpaper(quote, context, style, weather=weather_data)
+    render_wallpaper(quote, context, style, weather=weather_data, photos=photos_data, mood=mood)
 
 
 if __name__ == "__main__":
