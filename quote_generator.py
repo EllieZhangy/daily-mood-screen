@@ -12,15 +12,43 @@ def load_context(path: str = "context.json") -> dict:
         return json.load(f)
 
 
-def build_prompt(context: dict) -> str:
+def load_weather(path: str = "weather.json") -> dict | None:
+    """
+    Try to load weather.json.
+    Returns the weather dict if the file exists, or None if it doesn't.
+    The caller decides what to do when None is returned (usually fall back
+    to context.json["weather"]).
+    """
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return None
+
+
+def resolve_weather(context: dict, weather_data: dict | None) -> dict:
+    """
+    Return the weather dict that should be used everywhere.
+
+    Priority:
+      1. weather.json  (if it was loaded successfully — weather_data is not None)
+      2. context.json["weather"]  (fallback when weather.json doesn't exist)
+    """
+    if weather_data is not None:
+        return weather_data
+    # weather.json was missing — fall back to the weather block in context.json
+    return context.get("weather", {})
+
+
+def build_prompt(context: dict, weather: dict) -> str:
     """Turn context fields into a natural-language description for the AI."""
     language = context.get("language", "en-US")
-    weather = context.get("weather", {})
     photos = context.get("photos", {})
     style = context.get("style", {})
 
     condition = weather.get("condition", "unknown")
     temperature = weather.get("temperature", "unknown")
+    location = weather.get("location", "")      # only present in weather.json
     photo_theme = photos.get("theme", "none")
     has_people = photos.get("has_people", False)
 
@@ -33,10 +61,15 @@ def build_prompt(context: dict) -> str:
     else:
         language_instruction = "Write in English."
 
+    # Build the weather line — include location only if weather.json provided it
+    weather_line = f"{condition}, {temperature}°C"
+    if location:
+        weather_line = f"{location} — {weather_line}"
+
     prompt = f"""You are a poetic writer creating a daily mood quote for a personal screen wallpaper.
 
 Context for today:
-- Weather: {condition}, {temperature}°C
+- Weather: {weather_line}
 - Recent photos theme: {photo_theme}
 - Photos include people: {has_people}
 
@@ -56,11 +89,12 @@ Format:
     return prompt
 
 
-def generate_quote(context: dict, api_key: str) -> str:
+def generate_quote(context: dict, api_key: str, weather: dict | None = None) -> str:
     """Call the OpenAI API and return the generated quote."""
     client = OpenAI(api_key=api_key)
 
-    prompt = build_prompt(context)
+    resolved = resolve_weather(context, weather)
+    prompt = build_prompt(context, resolved)
 
     response = client.chat.completions.create(
         model="gpt-4.1-mini",
@@ -103,6 +137,15 @@ def main():
         print("  export OPENAI_API_KEY=sk-your-key-here")
         sys.exit(1)
 
+    # Try to load weather.json; fall back to context.json["weather"] if missing
+    weather_data = load_weather()
+    weather = resolve_weather(context, weather_data)
+
+    if weather_data is not None:
+        print("Weather  : loaded from weather.json")
+    else:
+        print("Weather  : weather.json not found, using context.json fallback")
+
     # Validate language
     language = context.get("language", "en-US")
     if language not in SUPPORTED_LANGUAGES:
@@ -110,17 +153,18 @@ def main():
         context["language"] = "en-US"
         language = "en-US"
 
-    weather = context.get("weather", {})
     photos = context.get("photos", {})
 
     print("=" * 50)
     print(f"Language : {language}")
-    print(f"Weather  : {weather.get('condition', 'unknown')}, {weather.get('temperature', '?')}°C")
+    if weather.get("location"):
+        print(f"Location : {weather['location']}")
+    print(f"Weather  : {weather.get('condition', 'unknown')}, {weather.get('temperature', '?')}°{weather.get('unit', 'C')}")
     print(f"Photos   : theme={photos.get('theme', 'none')}, people={photos.get('has_people', False)}")
     print("=" * 50)
     print("\nGenerating quote...\n")
 
-    quote = generate_quote(context, api_key)
+    quote = generate_quote(context, api_key, weather=weather_data)
 
     print(f"  {quote}\n")
     print("=" * 50)

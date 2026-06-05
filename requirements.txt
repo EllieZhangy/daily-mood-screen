@@ -1,3 +1,4 @@
 # No external dependencies yet — standard library only
 anthropic==0.105.2
 openai==2.41.0
+Pillow==9.5.0

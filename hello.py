@@ -1,1 +1,0 @@
-print("Daily Mood Screen")
