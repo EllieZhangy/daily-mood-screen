@@ -1,3 +1,4 @@
+import json
 import os
 import sys
 
@@ -12,8 +13,18 @@ from quote_generator import (
     resolve_weather,
     generate_quote,
 )
+from src.style_library import load_writing_style, load_visual_style
 from wallpaper_renderer import load_style, render_wallpaper
 from weather_fetcher import fetch_weather, read_city, save_weather
+
+
+def load_style_config(path: str = "style_config.json") -> dict:
+    """Load style_config.json. Returns empty dict if the file is missing."""
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        return {}
 
 
 def main():
@@ -72,12 +83,45 @@ def main():
     mood = determine_mood(weather, photos)
     print(f"  {mood['mood']}  ({', '.join(mood['emotion_keywords'])})")
 
-    # ── Load style early — fail before making an API call if file is missing ──
+    # ── Load wallpaper_style.json (base layout/font defaults) ────────────────
     try:
         style = load_style()
     except FileNotFoundError:
         print("Error: wallpaper_style.json not found.")
         sys.exit(1)
+
+    # ── Load style library selections from style_config.json ─────────────────
+    style_cfg     = load_style_config()
+    writing_style = None
+    visual_style  = None
+    preset_id     = None   # used by the new style-engine path
+
+    if style_cfg:
+        lang     = style_cfg.get("language",      "zh")
+        ws_name  = style_cfg.get("writing_style", "gentle")
+        vs_name  = style_cfg.get("visual_style",  "kinfolk")
+
+        # Derive preset_id: explicit field wins, otherwise compose from lang+style
+        preset_id = style_cfg.get("preset", f"{lang}_{ws_name}")
+
+        try:
+            from src.style_loader import list_presets
+            if preset_id in list_presets():
+                print(f"Writing preset: {preset_id}  (style engine active)")
+            else:
+                # Preset file doesn't exist — fall back to legacy writing_style
+                preset_id = None
+                writing_style = load_writing_style(lang, ws_name)
+                print(f"Writing style : {lang}_{ws_name}  (legacy path)")
+        except Exception as e:
+            preset_id = None
+            print(f"  Warning: style engine unavailable — {e}")
+
+        try:
+            visual_style = load_visual_style(vs_name)
+            print(f"Visual style : {vs_name}")
+        except FileNotFoundError as e:
+            print(f"  Warning: {e}")
 
     # ── API key ───────────────────────────────────────────────────────────────
     api_key = os.environ.get("OPENAI_API_KEY", "").strip()
@@ -94,12 +138,12 @@ def main():
 
     # ── Generate quote ────────────────────────────────────────────────────────
     print("Generating quote...")
-    quote = generate_quote(context, api_key, weather=weather_data, photos=photos_data, mood=mood)
+    quote = generate_quote(context, api_key, weather=weather_data, photos=photos_data, mood=mood, writing_style=writing_style, preset_id=preset_id)
     print(f"  {quote}")
 
     # ── Render wallpaper ──────────────────────────────────────────────────────
     print("Rendering wallpaper...")
-    render_wallpaper(quote, context, style, weather=weather_data, photos=photos_data, mood=mood)
+    render_wallpaper(quote, context, style, weather=weather_data, photos=photos_data, mood=mood, visual_style=visual_style)
 
 
 if __name__ == "__main__":

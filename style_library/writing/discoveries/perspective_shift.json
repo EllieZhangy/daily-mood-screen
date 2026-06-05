@@ -1,0 +1,21 @@
+{
+  "id": "perspective_shift",
+  "description": "同一件事，换一个位置或时间来看，意思完全不同",
+  "core_questions": [
+    "如果从另一端看，这件事是什么样的？",
+    "谁是这个场景里被忽略的那一方？",
+    "这件事在它结束之后，才能被看清吗？"
+  ],
+  "bad_output_patterns": [
+    "only describes what is seen from one angle",
+    "states that perspective matters without showing it",
+    "only creates a contemplative atmosphere",
+    "uses object stacking without realization"
+  ],
+  "good_output_patterns": [
+    "shows the same thing meaning two different things at once",
+    "reveals what is visible only from a different position",
+    "turns an assumed fact into a question by shifting viewpoint",
+    "changes how the reader understands the relationship between observer and observed"
+  ]
+}

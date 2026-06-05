@@ -1,0 +1,21 @@
+{
+  "id": "acceptance",
+  "description": "不要求世界改变，而是改变观看世界的方式",
+  "core_questions": [
+    "如果不反抗会怎样？",
+    "事情本来的样子是什么？",
+    "抗拒与接受之间，哪个更耗力气？"
+  ],
+  "bad_output_patterns": [
+    "only describes a scene",
+    "only sounds gentle",
+    "only creates atmosphere",
+    "uses object stacking without realization"
+  ],
+  "good_output_patterns": [
+    "reveals what is gained by not resisting",
+    "turns passive observation into active discovery",
+    "shows how accepting a fact changes its meaning",
+    "changes how the reader sees the situation"
+  ]
+}

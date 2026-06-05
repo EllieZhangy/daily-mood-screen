@@ -1,0 +1,21 @@
+{
+  "id": "paradox",
+  "description": "两件看似矛盾的事情同时成立",
+  "core_questions": [
+    "终点是否也是起点？",
+    "失去是否也是获得？",
+    "束缚是否也是保护？"
+  ],
+  "bad_output_patterns": [
+    "only states the contradiction without resolving it",
+    "only creates dramatic tension",
+    "uses paradox as decoration rather than discovery",
+    "sounds philosophical without grounding in observation"
+  ],
+  "good_output_patterns": [
+    "shows two opposing truths holding simultaneously in one concrete moment",
+    "reveals that what seemed like a problem is also its own solution",
+    "grounds the paradox in a specific observable thing",
+    "changes how the reader understands the relationship between two opposites"
+  ]
+}

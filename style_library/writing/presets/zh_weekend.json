@@ -1,0 +1,27 @@
+{
+  "preset": "zh_weekend",
+  "discoveries": {
+    "ordinary_revelation": 0.40,
+    "belonging": 0.30,
+    "perspective_shift": 0.30
+  },
+  "observation_sources": ["kitchen", "window", "street", "solitude"],
+  "reader_participation": 0.85,
+  "concrete_detail_level": "low",
+  "max_concrete_objects": 1,
+  "required_sentence_movement": [
+    "observation_to_realization",
+    "assumption_to_reversal",
+    "fact_to_perspective_shift"
+  ],
+  "quality_rule": "Generate a sentence that leaves a meaningful gap.",
+  "language_preferences": {
+    "prefer_states_over_judgments": true,
+    "prefer_images_over_explanations": true,
+    "prefer_suggestion_over_conclusion": true,
+    "avoid_direct_moral": true,
+    "avoid_first_person": true,
+    "avoid_second_person": true,
+    "avoid_excessive_contrast": true
+  }
+}

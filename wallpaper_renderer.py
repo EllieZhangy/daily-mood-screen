@@ -199,8 +199,8 @@ def format_mood_str(mood: dict) -> str:
 
 
 # ── Main render ───────────────────────────────────────────────────────────────
-def render_wallpaper(quote: str, context: dict, style: dict, weather: dict | None = None, photos: dict | None = None, mood: dict | None = None, output_path: str = OUTPUT_PATH) -> None:
-    # ── Read every value from style ───────────────────────────────────────────
+def render_wallpaper(quote: str, context: dict, style: dict, weather: dict | None = None, photos: dict | None = None, mood: dict | None = None, visual_style: dict | None = None, output_path: str = OUTPUT_PATH) -> None:
+    # ── Read base values from wallpaper_style.json ────────────────────────────
     font_cfg   = style.get("font", {})
     layout_cfg = style.get("layout", {})
     theme_cfg  = style.get("theme", {})
@@ -211,15 +211,41 @@ def render_wallpaper(quote: str, context: dict, style: dict, weather: dict | Non
 
     text_width_ratio = layout_cfg.get("text_width_ratio", 0.6)
     line_spacing     = layout_cfg.get("line_spacing", 1.5)
-    meta_gap         = layout_cfg.get("meta_gap", 72)       # px between meta and quote
-    meta_line_gap    = layout_cfg.get("meta_line_gap", 20)  # px between date and weather
-    vertical_offset  = layout_cfg.get("vertical_offset", 0) # px shift from center
+    meta_gap         = layout_cfg.get("meta_gap", 72)
+    meta_line_gap    = layout_cfg.get("meta_line_gap", 20)
+    vertical_offset  = layout_cfg.get("vertical_offset", 0)
 
-    theme_name  = theme_cfg.get("background", "warm_light")
-    alignment   = theme_cfg.get("alignment", "center")
+    theme_name = theme_cfg.get("background", "warm_light")
+    alignment  = theme_cfg.get("alignment", "center")
 
-    # ── Resolve theme colors ──────────────────────────────────────────────────
-    theme = THEMES.get(theme_name, THEMES["warm_light"])
+    # ── Resolve base theme colors ─────────────────────────────────────────────
+    theme = dict(THEMES.get(theme_name, THEMES["warm_light"]))  # copy — we may override below
+
+    # ── Apply visual style overrides (if a library style was loaded) ──────────
+    # Visual style values take priority over wallpaper_style.json.
+    if visual_style:
+        vs_typo    = visual_style.get("typography",    {})
+        vs_layout  = visual_style.get("layout",        {})
+        vs_bg      = visual_style.get("background",    {})
+        vs_palette = visual_style.get("color_palette", {})
+
+        font_name        = vs_typo.get("font",          font_name)
+        quote_size       = vs_typo.get("quote_size",    quote_size)
+        meta_size        = vs_typo.get("metadata_size", meta_size)
+        line_spacing     = vs_typo.get("line_spacing",  line_spacing)
+
+        text_width_ratio = vs_layout.get("text_width_ratio", text_width_ratio)
+        vertical_offset  = vs_layout.get("vertical_offset",  vertical_offset)
+        meta_gap         = vs_layout.get("meta_gap",          meta_gap)
+        meta_line_gap    = vs_layout.get("meta_line_gap",     meta_line_gap)
+        alignment        = vs_layout.get("alignment",         alignment)
+
+        if vs_bg.get("type") == "gradient":
+            if "top"    in vs_bg: theme["bg_top"]    = tuple(vs_bg["top"])
+            if "bottom" in vs_bg: theme["bg_bottom"]  = tuple(vs_bg["bottom"])
+
+        if "text_primary"   in vs_palette: theme["text"] = tuple(vs_palette["text_primary"])
+        if "text_secondary" in vs_palette: theme["meta"] = tuple(vs_palette["text_secondary"])
 
     # ── Build display strings ─────────────────────────────────────────────────
     resolved_weather = resolve_weather(context, weather)

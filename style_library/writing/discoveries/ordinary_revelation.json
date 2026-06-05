@@ -1,0 +1,21 @@
+{
+  "id": "ordinary_revelation",
+  "description": "从极普通的事物里发现意义——不是因为它特别，而是因为你换了角度",
+  "core_questions": [
+    "这个平凡之物，正在发生什么？",
+    "如果换一个人来看，他会注意到什么？",
+    "这件事每天都在发生，为什么今天才看见？"
+  ],
+  "bad_output_patterns": [
+    "only describes the ordinary thing",
+    "only creates a gentle atmosphere",
+    "treats the ordinary as poetic without explaining why",
+    "uses object stacking without realization"
+  ],
+  "good_output_patterns": [
+    "reveals something unexpected inside the ordinary",
+    "shows the ordinary thing doing something the reader had not noticed",
+    "turns a mundane fact into a discovery about how things work",
+    "changes how the reader sees something they look at every day"
+  ]
+}
