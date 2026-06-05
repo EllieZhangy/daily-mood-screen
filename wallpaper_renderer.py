@@ -302,10 +302,17 @@ def render_wallpaper(quote: str, context: dict, style: dict, weather: dict | Non
         if i < len(quote_lines) - 1:
             y += line_gap
 
-    # ── Save ──────────────────────────────────────────────────────────────────
+    # ── Save current wallpaper (overwritten each day) ────────────────────────
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
     image.save(output_path)
-    print(f"Wallpaper saved → {output_path}")
+    print(f"Current   → {output_path}")
+
+    # ── Save dated archive copy ───────────────────────────────────────────────
+    archive_date = date.today().strftime("%Y-%m-%d")
+    archive_path = os.path.join("archive", f"{archive_date}.png")
+    os.makedirs("archive", exist_ok=True)
+    image.save(archive_path)
+    print(f"Archive   → {archive_path}")
 
 
 # ── Entry point ───────────────────────────────────────────────────────────────

@@ -1,6 +1,8 @@
 import os
 import sys
 
+import requests
+
 from mood_engine import determine_mood
 from quote_generator import (
     load_context,
@@ -11,9 +13,37 @@ from quote_generator import (
     generate_quote,
 )
 from wallpaper_renderer import load_style, render_wallpaper
+from weather_fetcher import fetch_weather, read_city, save_weather
 
 
 def main():
+    # ── Fetch live weather ────────────────────────────────────────────────────
+    # If WEATHERAPI_KEY is set, fetch fresh data and overwrite weather.json.
+    # If it is missing or the fetch fails, silently continue — the rest of the
+    # pipeline will read whatever is already in weather.json (or fall back to
+    # context.json["weather"] if weather.json doesn't exist either).
+    print("Fetching weather...")
+    ow_key = os.environ.get("WEATHERAPI_KEY", "").strip()
+    if ow_key:
+        try:
+            city = read_city()
+            if city is None:
+                print("  Could not determine city — skipping live fetch")
+            else:
+                weather_live = fetch_weather(city, ow_key)
+                save_weather(weather_live)
+                print(f"  {weather_live['location']} · {weather_live['condition']} · {weather_live['temperature']}°C")
+        except requests.exceptions.ConnectionError:
+            print("  Warning: network error — using existing weather.json")
+        except requests.exceptions.Timeout:
+            print("  Warning: request timed out — using existing weather.json")
+        except requests.exceptions.HTTPError as e:
+            print(f"  Warning: API error ({e.response.status_code}) — using existing weather.json")
+        except Exception as e:
+            print(f"  Warning: {e} — using existing weather.json")
+    else:
+        print("  WEATHERAPI_KEY not set — skipping live fetch")
+
     # ── Load data ─────────────────────────────────────────────────────────────
     print("Loading context...")
     try:
@@ -30,7 +60,7 @@ def main():
     print("Loading photos...")
     photos_data = load_photos()
     if photos_data is None:
-        print("  photos.json not found — using context.json fallback")
+        print("  No photos for today — mood will be weather-only")
 
     # Resolve for mood determination.
     # render_wallpaper and generate_quote also resolve internally when called.

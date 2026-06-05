@@ -1,6 +1,7 @@
 import json
 import os
 import sys
+from datetime import date as _date
 
 from openai import OpenAI
 
@@ -30,14 +31,26 @@ def load_weather(path: str = "weather.json") -> dict | None:
 
 def load_photos(path: str = "photos.json") -> dict | None:
     """
-    Try to load photos.json.
-    Returns the photos dict if the file exists, or None if it doesn't.
+    Try to load photos.json, but only if it was written today.
 
-    Priority when None is returned: fall back to context.json["photos"].
+    Photos are personal and time-sensitive — yesterday's outing shouldn't
+    colour today's wallpaper. If the file exists but is from a previous day,
+    treat it as stale and return None so the pipeline uses the no-photos default.
+
+    Returns the photos dict, or None if the file is missing or stale.
     """
     try:
+        # Check modification date before reading content
+        mtime      = os.path.getmtime(path)
+        file_date  = _date.fromtimestamp(mtime)
+        today      = _date.today()
+
+        if file_date != today:
+            return None   # stale — from a previous day
+
         with open(path, "r", encoding="utf-8") as f:
             return json.load(f)
+
     except FileNotFoundError:
         return None
 
@@ -82,7 +95,6 @@ def build_prompt(context: dict, weather: dict, photos: dict, mood: dict) -> str:
 
     # ── Photos ────────────────────────────────────────────────────────────────
     photo_theme = photos.get("theme", "none")
-    has_people  = photos.get("has_people", False)
     photo_count = photos.get("photo_count", 0)
 
     # ── Mood (from mood_engine) ───────────────────────────────────────────────
@@ -106,8 +118,7 @@ def build_prompt(context: dict, weather: dict, photos: dict, mood: dict) -> str:
         weather_line = f"{location} — {weather_line}"
 
     # Build the photo context line
-    people_note = "with people" if has_people else "no people"
-    photo_line  = f"{photo_count} recent photos, {photo_theme} theme ({people_note})"
+    photo_line = f"{photo_count} recent photos, {photo_theme} theme"
 
     prompt = f"""You are a poetic writer creating a daily mood quote for a personal screen wallpaper.
 
