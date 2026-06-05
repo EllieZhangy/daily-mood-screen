@@ -1,0 +1,35 @@
+{
+  "language": "zh-CN",
+
+  "weather": {
+    "condition": "cloudy",
+    "temperature": 12
+  },
+
+  "photos": {
+    "has_recent_photos": true,
+    "has_people": true,
+    "theme": "friends"
+  },
+
+  "style": {
+    "tone": [
+      "literary",
+      "atmospheric",
+      "calm",
+      "emotional"
+    ],
+    "avoid": [
+      "motivational quotes",
+      "generic inspiration",
+      "cheesy expressions",
+      "self-help language"
+    ]
+  },
+
+  "memory": {},
+
+  "fitness": {},
+
+  "calendar": {}
+}
