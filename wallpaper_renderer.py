@@ -272,6 +272,62 @@ _THEME_ZH = {
     "mountain":     "山野",
 }
 
+_LOCATION_ZH = {
+    # United States
+    "los angeles":      "洛杉矶",
+    "new york":         "纽约",
+    "new york city":    "纽约",
+    "san francisco":    "旧金山",
+    "chicago":          "芝加哥",
+    "seattle":          "西雅图",
+    "boston":           "波士顿",
+    "washington":       "华盛顿",
+    "washington dc":    "华盛顿",
+    "miami":            "迈阿密",
+    "las vegas":        "拉斯维加斯",
+    "houston":          "休斯顿",
+    "dallas":           "达拉斯",
+    "austin":           "奥斯汀",
+    "denver":           "丹佛",
+    "portland":         "波特兰",
+    "san diego":        "圣地亚哥",
+    "phoenix":          "凤凰城",
+    "atlanta":          "亚特兰大",
+    "minneapolis":      "明尼阿波利斯",
+    # China
+    "beijing":          "北京",
+    "shanghai":         "上海",
+    "guangzhou":        "广州",
+    "shenzhen":         "深圳",
+    "chengdu":          "成都",
+    "hangzhou":         "杭州",
+    "wuhan":            "武汉",
+    "xi'an":            "西安",
+    "xian":             "西安",
+    "nanjing":          "南京",
+    "chongqing":        "重庆",
+    "tianjin":          "天津",
+    "suzhou":           "苏州",
+    "qingdao":          "青岛",
+    "kunming":          "昆明",
+    "hong kong":        "香港",
+    "macau":            "澳门",
+    "taipei":           "台北",
+    # Other major cities
+    "tokyo":            "东京",
+    "osaka":            "大阪",
+    "kyoto":            "京都",
+    "seoul":            "首尔",
+    "singapore":        "新加坡",
+    "london":           "伦敦",
+    "paris":            "巴黎",
+    "berlin":           "柏林",
+    "sydney":           "悉尼",
+    "melbourne":        "墨尔本",
+    "toronto":          "多伦多",
+    "vancouver":        "温哥华",
+}
+
 
 # ── Weather string builder ────────────────────────────────────────────────────
 def format_weather_str(weather: dict) -> str:
@@ -289,7 +345,7 @@ def format_weather_str(weather: dict) -> str:
     unit      = weather.get("unit", "C")
 
     if location:
-        parts.append(location)
+        parts.append(_LOCATION_ZH.get(location.lower(), location))
     if condition:
         zh = _CONDITION_ZH.get(condition.lower(), condition)
         parts.append(zh)
