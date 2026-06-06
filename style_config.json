@@ -1,5 +1,6 @@
 {
   "language": "zh",
   "writing_style": "gentle",
-  "visual_style": "kinfolk"
+  "visual_style": "daily_mood",
+  "use_ai_background": false
 }

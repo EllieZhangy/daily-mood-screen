@@ -13,7 +13,7 @@ from quote_generator import (
     resolve_weather,
     generate_quote,
 )
-from src.style_library import load_writing_style, load_visual_style
+from src.style_library import load_writing_style, load_visual_style, auto_visual_preset
 from wallpaper_renderer import load_style, render_wallpaper
 from weather_fetcher import fetch_weather, read_city, save_weather
 
@@ -118,10 +118,37 @@ def main():
             print(f"  Warning: style engine unavailable — {e}")
 
         try:
-            visual_style = load_visual_style(vs_name)
-            print(f"Visual style : {vs_name}")
+            if vs_name == "daily_mood":
+                # Mood-aware auto-selection from reference DNA — preset chosen after mood is known
+                from mood_engine import categorize_weather
+                wcat = categorize_weather(resolve_weather(context, weather_data))
+                visual_style = auto_visual_preset(mood["mood"], wcat)
+                preset_label = visual_style.get("_preset", "daily_mood_auto")
+                print(f"Visual style : {vs_name} → {preset_label}")
+            else:
+                visual_style = load_visual_style(vs_name)
+                print(f"Visual style : {vs_name}")
         except FileNotFoundError as e:
             print(f"  Warning: {e}")
+
+    # ── Generate background image ─────────────────────────────────────────────
+    print("Generating background...")
+    use_ai_background = bool(style_cfg.get("use_ai_background", False))
+    try:
+        from background_generator import generate_background as gen_bg
+        gen_bg(
+            mood=mood,
+            weather=weather,
+            photos=photos,
+            visual_style=visual_style,
+            text_color=tuple(visual_style.get("color_palette", {}).get(
+                "text_primary", [52, 46, 40]
+            )) if visual_style else (52, 46, 40),
+            use_ai=use_ai_background,
+        )
+    except Exception as _bg_err:
+        print(f"  Warning: background generation failed ({_bg_err})")
+        print("  Renderer will use gradient fallback.")
 
     # ── API key ───────────────────────────────────────────────────────────────
     api_key = os.environ.get("OPENAI_API_KEY", "").strip()

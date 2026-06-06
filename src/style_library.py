@@ -1,13 +1,15 @@
 import json
 import os
+from datetime import datetime
 
 # style_library/ lives at the project root, one level up from src/
-_ROOT        = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
-_WRITING_DIR = os.path.join(_ROOT, "style_library", "writing")
-_VISUAL_DIR  = os.path.join(_ROOT, "style_library", "visual")
-_AUTHORS_DIR = os.path.join(_WRITING_DIR, "authors")
-_THEMES_DIR  = os.path.join(_WRITING_DIR, "themes")
-_PRESETS_DIR = os.path.join(_WRITING_DIR, "presets")
+_ROOT         = os.path.normpath(os.path.join(os.path.dirname(__file__), ".."))
+_WRITING_DIR  = os.path.join(_ROOT, "style_library", "writing")
+_VISUAL_DIR   = os.path.join(_ROOT, "style_library", "visual")
+_V_PRESETS    = _VISUAL_DIR   # presets live flat in visual/
+_AUTHORS_DIR  = os.path.join(_WRITING_DIR, "authors")
+_THEMES_DIR   = os.path.join(_WRITING_DIR, "themes")
+_PRESETS_DIR  = os.path.join(_WRITING_DIR, "presets")
 
 
 def _load_json(path: str, label: str) -> dict:
@@ -73,17 +75,60 @@ def load_theme_style(theme: str) -> dict:
 # ── Visual styles ─────────────────────────────────────────────────────────────
 
 def load_visual_style(style: str) -> dict:
-    """
-    Load a visual style from style_library/visual/.
-
-    Args:
-        style:  "kinfolk", "muji", "cinematic", "apple_journal"
-
-    Example:
-        load_visual_style("kinfolk")  →  visual/kinfolk.json
-    """
+    """Load a visual style JSON from style_library/visual/."""
     path = os.path.join(_VISUAL_DIR, f"{style}.json")
     return _load_json(path, f"Visual style '{style}'")
+
+
+def load_visual_preset(preset: str) -> dict:
+    """Load a named preset from style_library/visual/presets/."""
+    path = os.path.join(_V_PRESETS, f"{preset}.json")
+    return _load_json(path, f"Visual preset '{preset}'")
+
+
+# ── Mood-to-preset mapping ────────────────────────────────────────────────────
+# Keys are substrings matched against the mood name.
+# The first match wins. Order matters: most specific first.
+_MOOD_PRESET_RULES: list[tuple[list[str], str]] = [
+    # Cold weather moods → night (deep, interior)
+    (["cold_"],       "daily_mood_night"),
+    # Rainy moods → night (reflective, inward)
+    (["rainy_"],      "daily_mood_night"),
+    # Nostalgia / warmth / reunion / homecoming → warm amber
+    (["nostalgia", "warmth", "reunion", "homecoming", "comfort", "shelter"], "daily_mood_warm"),
+    # Solitude / introspection / journey → night
+    (["solitude", "introspection", "journey"],  "daily_mood_night"),
+    # Cloudy moods → earth (muted, quiet)
+    (["cloudy_"],     "daily_mood_earth"),
+    # Sunny movement / discovery / openness → cool
+    (["movement", "discovery", "simplicity", "stillness"], "daily_mood_cool"),
+    # Default sunny → warm
+    (["sunny_"],      "daily_mood_warm"),
+]
+
+_DUSK_HOURS = range(17, 21)   # 17:00–20:59 → dusk preset
+
+
+def auto_visual_preset(mood_name: str, weather_category: str) -> dict:
+    """
+    Return the best-fit visual preset dict for the given mood and weather.
+
+    Uses _MOOD_PRESET_RULES for base selection, then overrides to dusk
+    preset during evening hours (17–20).
+    """
+    hour = datetime.now().hour
+
+    # Evening override — dusk wins regardless of mood
+    if hour in _DUSK_HOURS:
+        return load_visual_preset("daily_mood_dusk")
+
+    combined = f"{weather_category}_{mood_name}".lower()
+    for keywords, preset_name in _MOOD_PRESET_RULES:
+        if any(kw in combined for kw in keywords):
+            return load_visual_preset(preset_name)
+
+    # Absolute fallback
+    return load_visual_preset("daily_mood_warm")
 
 
 # ── List helpers ──────────────────────────────────────────────────────────────
