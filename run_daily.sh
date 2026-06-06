@@ -1,15 +1,16 @@
 #!/bin/bash
-# Daily Mood Screen — called by launchd at 7:00 AM
-# API keys live in .env (never committed to git)
+# Daily Mood Screen — scheduled runner for launchd
+# Loads .env, then runs main.py from the project directory.
 
-set -e
-cd "$(dirname "$0")"
+PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$PROJECT_DIR"
 
-# Load secrets from .env if present
-if [ -f .env ]; then
-  set -a
-  source .env
-  set +a
+# Load environment variables from .env (skip blank lines and comments)
+if [ -f "$PROJECT_DIR/.env" ]; then
+    while IFS='=' read -r key val; do
+        [[ -z "$key" || "$key" == \#* ]] && continue
+        export "$key=$val"
+    done < "$PROJECT_DIR/.env"
 fi
 
-/Users/zy/miniconda3/bin/python3 main.py
+exec /Users/zy/miniconda3/bin/python main.py

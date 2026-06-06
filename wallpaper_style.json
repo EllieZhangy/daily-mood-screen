@@ -1,14 +1,15 @@
 {
   "font": {
     "primary": "PingFang SC",
-    "quote_size": 72,
-    "metadata_size": 24
+    "quote_size": 49,
+    "metadata_size": 24,
+    "typography_style": "handwritten_note"
   },
 
   "layout": {
     "text_width_ratio": 0.6,
     "line_spacing": 1.6,
-    "meta_gap": 80,
+    "meta_gap": 20,
     "meta_line_gap": 20,
     "vertical_offset": -100
   },

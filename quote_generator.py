@@ -152,7 +152,24 @@ General style:
 - Avoid: {avoid_words}
 - Let the mood and visual atmosphere shape the quote
 - The quote should evoke a feeling, not give advice
-- Emotionally restrained, modern, subtle — not dramatic or over-the-top
+- Complete every thought — land on a clear image, observation, realization, or question
+- Never trail off with 或许是、像是在、仿佛、好像、似乎 — use a real ending instead
+
+Voice patterns to draw from (study the structure, never copy the line):
+  · 天色慢下来，人也该慢下来。         [nature mirrors human — no explanation]
+  · 晴天时爱晴，雨天时爱雨。           [symmetric pairs holding one whole truth]
+  · 流水不争光，争的是滔滔不绝。       [reversal landing — surprise at the end]
+  · 总有人在回家的路上，也总有人在等灯亮起。  [two mirrored human conditions]
+  · 天寒露重，望君保重。               [warmth with weight — not sentimental]
+  · 草木蔓生，春山可望。               [world-state opens into what becomes possible]
+  · 秋日薄暮，用菊花煮竹叶青，人与海棠俱醉。  [anchored in a specific sensory moment]
+
+Structural techniques:
+  · Let an observation of the world quietly imply something about people
+  · Use symmetric halves where each needs the other to be complete
+  · Surprise with where the sentence lands, not with decoration
+  · Live inside a concrete time: a season, a weather, a time of day
+  · Warmth comes from precision, not from warmth-words
 {writing_style_block}
 Format:
 - Output exactly 1 to 2 short lines

@@ -12,6 +12,12 @@ from quote_generator import (
     load_photos, resolve_photos,
     load_weather, resolve_weather,
 )
+from src.typography_engine import (
+    load_typography_style,
+    choose_font,
+    render_handwritten_text,
+    wrap_to_lines,
+)
 
 # ── Canvas — 16:9 desktop (2560×1440) ────────────────────────────────────────
 WIDTH  = 2560
@@ -118,6 +124,34 @@ def measure_h(draw: ImageDraw.ImageDraw, text: str, font) -> int:
     return bbox[3] - bbox[1]
 
 
+def _sample_region_avg(image: Image.Image, box: tuple) -> tuple:
+    """Return the average RGB color of an image region via 1-pixel resize."""
+    x0, y0, x1, y1 = box
+    x0, y0 = max(0, x0), max(0, y0)
+    x1, y1 = min(image.width, x1), min(image.height, y1)
+    region = image.crop((x0, y0, x1, y1)).convert("RGB").resize((1, 1), Image.LANCZOS)
+    return region.getpixel((0, 0))
+
+
+def _readable_meta_color(bg_rgb: tuple, text_rgb: tuple, opacity: float = 0.72) -> tuple:
+    """
+    Return a meta text color that is always lighter than the primary text.
+
+    Blends text_rgb toward bg_rgb at (1 - opacity): the meta carries 72% of
+    the text's darkness while 28% bleeds back toward the background.
+
+    This guarantees: meta < quote in visual prominence on any background,
+    meta is clearly readable (≈72% of quote visibility), hierarchy is preserved.
+    """
+    br, bg, bb = bg_rgb
+    tr, tg, tb = text_rgb
+    return (
+        round(tr * opacity + br * (1 - opacity)),
+        round(tg * opacity + bg * (1 - opacity)),
+        round(tb * opacity + bb * (1 - opacity)),
+    )
+
+
 def wrap_text(draw: ImageDraw.ImageDraw, text: str, font, max_width: int) -> list[str]:
     """
     Fit text into max_width, breaking on newlines first, then character by
@@ -141,15 +175,112 @@ def wrap_text(draw: ImageDraw.ImageDraw, text: str, font, max_width: int) -> lis
     return lines
 
 
+# ── Chinese translation tables ────────────────────────────────────────────────
+_CONDITION_ZH = {
+    "clear": "晴",
+    "sunny": "晴",
+    "partly cloudy": "多云",
+    "partly_cloudy": "多云",
+    "cloudy": "阴",
+    "overcast": "阴云密布",
+    "mist": "薄雾",
+    "fog": "大雾",
+    "foggy": "大雾",
+    "haze": "霾",
+    "drizzle": "细雨",
+    "light drizzle": "细雨",
+    "freezing drizzle": "冻雨",
+    "heavy drizzle": "大雨",
+    "rain": "雨",
+    "light rain": "小雨",
+    "moderate rain": "中雨",
+    "heavy rain": "大雨",
+    "torrential rain": "暴雨",
+    "shower": "阵雨",
+    "showers": "阵雨",
+    "patchy rain": "局部小雨",
+    "thunderstorm": "雷雨",
+    "thunder": "雷雨",
+    "blizzard": "暴雪",
+    "snow": "雪",
+    "light snow": "小雪",
+    "moderate snow": "中雪",
+    "heavy snow": "大雪",
+    "patchy snow": "局部小雪",
+    "sleet": "雨夹雪",
+    "freezing rain": "冻雨",
+    "hail": "冰雹",
+    "wind": "大风",
+    "windy": "大风",
+    "tornado": "龙卷风",
+}
+
+_MOOD_ZH = {
+    "cold_reunion":        "寒日重逢",
+    "cold_solitude":       "冬日独处",
+    "cold_stillness":      "寒意静谧",
+    "cold_nostalgia":      "冬日念旧",
+    "cold_homecoming":     "归家温暖",
+    "cold_journey":        "冬日旅途",
+    "cold_introspection":  "冬日沉思",
+    "cold_comfort":        "冬日慰藉",
+    "rainy_connection":    "雨中相聚",
+    "rainy_solitude":      "雨中独行",
+    "rainy_reflection":    "雨日沉思",
+    "rainy_nostalgia":     "雨日怀旧",
+    "rainy_shelter":       "雨中避风",
+    "rainy_discovery":     "雨中探索",
+    "rainy_introspection": "雨日内省",
+    "rainy_comfort":       "雨日温暖",
+    "cloudy_reunion":      "阴日重逢",
+    "cloudy_solitude":     "阴日独处",
+    "cloudy_calm":         "阴云静好",
+    "cloudy_nostalgia":    "阴日思绪",
+    "cloudy_warmth":       "阴云暖意",
+    "cloudy_movement":     "阴日远行",
+    "cloudy_reflection":   "阴日沉思",
+    "cloudy_comfort":      "阴日慰藉",
+    "sunny_connection":    "晴日相聚",
+    "sunny_solitude":      "晴日独行",
+    "calm_reflection":     "静心沉思",
+    "sunny_nostalgia":     "晴日怀旧",
+    "sunny_warmth":        "晴日温暖",
+    "sunny_movement":      "晴日出发",
+    "sunny_stillness":     "晴日静好",
+    "sunny_simplicity":    "晴日简单",
+}
+
+_THEME_ZH = {
+    "friends":      "朋友",
+    "family":       "家人",
+    "travel":       "旅行",
+    "food":         "美食",
+    "nature":       "自然",
+    "city":         "城市",
+    "work":         "工作",
+    "art":          "艺术",
+    "music":        "音乐",
+    "sports":       "运动",
+    "pets":         "宠物",
+    "events":       "活动",
+    "landscape":    "风景",
+    "portrait":     "人像",
+    "street":       "街拍",
+    "architecture": "建筑",
+    "night":        "夜景",
+    "beach":        "海边",
+    "mountain":     "山野",
+}
+
+
 # ── Weather string builder ────────────────────────────────────────────────────
 def format_weather_str(weather: dict) -> str:
     """
-    Build the weather metadata line shown on the wallpaper.
-    Includes location only when the weather dict has one (i.e. from weather.json).
+    Build the weather metadata line shown on the wallpaper (Chinese).
 
     Examples:
-      weather.json present  →  "Los Angeles · Cloudy · 12°C"
-      context.json fallback →  "Cloudy · 12°C"
+      weather.json present  →  "洛杉矶 · 晴 · 22℃"
+      context.json fallback →  "晴 · 22℃"
     """
     parts = []
     location  = weather.get("location", "")
@@ -160,9 +291,9 @@ def format_weather_str(weather: dict) -> str:
     if location:
         parts.append(location)
     if condition:
-        parts.append(condition.capitalize())
+        zh = _CONDITION_ZH.get(condition.lower(), condition)
+        parts.append(zh)
     if temp != "":
-        # ℃/℉ are single Unicode glyphs — avoids the kerning gap that °C produces in STHeiti
         unit_glyph = {"C": "℃", "F": "℉"}.get(unit, f"°{unit}")
         parts.append(f"{temp}{unit_glyph}")
 
@@ -172,10 +303,10 @@ def format_weather_str(weather: dict) -> str:
 # ── Photos string builder ─────────────────────────────────────────────────────
 def format_photos_str(photos: dict) -> str:
     """
-    Build the photos metadata line shown below the weather line.
+    Build the photos metadata line shown below the weather line (Chinese).
 
     Examples:
-      theme=friends, count=6  →  "Friends · 6 Photos"
+      theme=friends, count=6  →  "朋友 · 6 张照片"
       theme=none, count=0     →  ""  (nothing drawn)
     """
     theme = photos.get("theme", "none")
@@ -183,9 +314,10 @@ def format_photos_str(photos: dict) -> str:
 
     parts = []
     if theme and theme != "none":
-        parts.append(theme.capitalize())
+        zh_theme = _THEME_ZH.get(theme.lower(), theme)
+        parts.append(zh_theme)
     if count:
-        parts.append(f"{count} Photos")
+        parts.append(f"{count} 张照片")
 
     return " · ".join(parts)
 
@@ -193,19 +325,19 @@ def format_photos_str(photos: dict) -> str:
 # ── Mood string builder ───────────────────────────────────────────────────────
 def format_mood_str(mood: dict) -> str:
     """
-    Build the mood metadata line shown below the photos line.
-    "cold_reunion" → "Mood · Cold Reunion"
+    Build the mood metadata line shown below the photos line (Chinese).
+    "cold_reunion" → "心情 · 寒日重逢"
     Returns empty string if mood is empty.
     """
     mood_name = mood.get("mood", "")
     if not mood_name:
         return ""
-    label = mood_name.replace("_", " ").title()
-    return f"Mood · {label}"
+    label = _MOOD_ZH.get(mood_name, mood_name.replace("_", " ").title())
+    return f"心情 · {label}"
 
 
 # ── Main render ───────────────────────────────────────────────────────────────
-def render_wallpaper(quote: str, context: dict, style: dict, weather: dict | None = None, photos: dict | None = None, mood: dict | None = None, visual_style: dict | None = None, output_path: str = OUTPUT_PATH) -> None:
+def render_wallpaper(quote: str, context: dict, style: dict, weather: dict | None = None, photos: dict | None = None, mood: dict | None = None, visual_style: dict | None = None, output_path: str = OUTPUT_PATH, typography_style: str | None = None) -> None:
     # ── Read base values from wallpaper_style.json ────────────────────────────
     font_cfg   = style.get("font", {})
     layout_cfg = style.get("layout", {})
@@ -214,6 +346,10 @@ def render_wallpaper(quote: str, context: dict, style: dict, weather: dict | Non
     font_name        = font_cfg.get("primary", "STHeiti Light")
     quote_size       = font_cfg.get("quote_size", 68)
     meta_size        = font_cfg.get("metadata_size", 30)
+
+    # Typography style: parameter wins, then style JSON, then None (standard)
+    if typography_style is None:
+        typography_style = font_cfg.get("typography_style", None)
 
     text_width_ratio = layout_cfg.get("text_width_ratio", 0.6)
     line_spacing     = layout_cfg.get("line_spacing", 1.5)
@@ -243,6 +379,11 @@ def render_wallpaper(quote: str, context: dict, style: dict, weather: dict | Non
         meta_size        = vs_typo.get("metadata_size", meta_size)
         line_spacing     = vs_typo.get("line_spacing",  line_spacing)
 
+    # Handwriting renders at its own larger size — don't let visual presets
+    # shrink it (presets target typeset text at ~44px, handwriting needs ~96px).
+    if typography_style == "handwritten_note":
+        quote_size = font_cfg.get("quote_size", 96)
+
         text_width_ratio = vs_layout.get("text_width_ratio", text_width_ratio)
         vertical_offset  = vs_layout.get("vertical_offset",  vertical_offset)
         meta_gap         = vs_layout.get("meta_gap",          meta_gap)
@@ -262,7 +403,7 @@ def render_wallpaper(quote: str, context: dict, style: dict, weather: dict | Non
     resolved_weather = resolve_weather(context, weather)
     resolved_photos  = resolve_photos(context, photos)
     resolved_mood    = mood if mood is not None else determine_mood(resolved_weather, resolved_photos)
-    today_str        = date.today().strftime("%Y · %m · %d")
+    today_str        = date.today().strftime("%Y年%m月%d日")
     weather_str      = format_weather_str(resolved_weather)
     photos_str       = format_photos_str(resolved_photos)
     mood_str         = format_mood_str(resolved_mood)
@@ -300,6 +441,15 @@ def render_wallpaper(quote: str, context: dict, style: dict, weather: dict | Non
         except Exception as _ve_err:
             print(f"  bg   : gradient fallback ({_ve_err})")
             image = make_gradient(WIDTH, HEIGHT, theme["bg_top"], theme["bg_bottom"])
+
+    # Sample background at the metadata region and set a contrast-aware color.
+    if position == "bottom_right":
+        _sbx = (WIDTH - 550, HEIGHT - 550, WIDTH - 30, HEIGHT - 30)
+    elif position == "bottom_left":
+        _sbx = (30, HEIGHT - 550, 550, HEIGHT - 30)
+    else:
+        _sbx = (WIDTH // 4, HEIGHT // 4, 3 * WIDTH // 4, 3 * HEIGHT // 4)
+    theme["meta"] = _readable_meta_color(_sample_region_avg(image, _sbx), theme["text"])
 
     draw  = ImageDraw.Draw(image)
 
@@ -367,11 +517,97 @@ def render_wallpaper(quote: str, context: dict, style: dict, weather: dict | Non
 
     y += meta_gap
 
-    for i, line in enumerate(quote_lines):
-        draw.text((x, y), line, font=font_quote, fill=theme["text"], anchor=anchor)
-        y += measure_h(draw, line, font_quote)
-        if i < len(quote_lines) - 1:
-            y += line_gap
+    # ── Quote text: handwritten_note style or standard typeset ────────────────
+    if typography_style == "handwritten_note":
+        try:
+            hw_style  = load_typography_style("handwritten_note")
+            hw_max_width_ratio = hw_style.get("layout", {}).get("max_width_ratio", 0.27)
+            hw_max_width = int(WIDTH * hw_max_width_ratio)
+            hw_extra_px  = hw_style.get("spacing", {}).get("character_spacing_px_extra", 3)
+
+            # ── Wrap with font-size reduction fallback ────────────────────────
+            # Start at quote_size; if the text needs more than 3 lines, reduce
+            # font size by 10% and retry — never drop characters.
+            hw_size = quote_size
+            hw_font = choose_font("handwritten_note", hw_size)
+            hw_lines = wrap_to_lines(quote, hw_font, hw_max_width,
+                                     char_extra_px=hw_extra_px)
+            while len(hw_lines) > 3 and hw_size > 40:
+                hw_size = max(40, int(hw_size * 0.9))
+                hw_font = choose_font("handwritten_note", hw_size)
+                hw_lines = wrap_to_lines(quote, hw_font, hw_max_width,
+                                         char_extra_px=hw_extra_px)
+
+            # If wrapping still produces a single-char orphan on the last line,
+            # try expanding the text area width in small steps (shifts the block
+            # left, keeping it right-aligned) before accepting the wrap.
+            if len(hw_lines) > 1 and len(hw_lines[-1]) == 1:
+                for _expand in (1.06, 1.10, 1.15):
+                    _wider = int(hw_max_width * _expand)
+                    if _wider > int(WIDTH * 0.40):   # cap at 40 % of canvas
+                        break
+                    _trial = wrap_to_lines(quote, hw_font, _wider,
+                                           char_extra_px=hw_extra_px)
+                    if len(_trial[-1]) > 1:
+                        hw_max_width = _wider
+                        hw_lines = _trial
+                        break
+
+            # ── Validate: no characters may be dropped ────────────────────────
+            if "".join(hw_lines) != quote:
+                raise RuntimeError(
+                    f"Typography engine dropped characters!\n"
+                    f"  expected ({len(quote)}): {quote!r}\n"
+                    f"  got      ({len(''.join(hw_lines))}): {''.join(hw_lines)!r}"
+                )
+
+            # Replace CJK commas/periods with a half-width space for rendering only.
+            # The original text was already validated above — nothing is dropped.
+            # HanziPen SC renders ，as a tiny tick; a breath of space reads more
+            # naturally in the handwriting aesthetic.
+            _PUNCT_SPACE = str.maketrans('，。、；：', '     ')
+            hw_text = "\n".join(
+                line.translate(_PUNCT_SPACE) for line in hw_lines
+            )
+
+            hw_color   = theme["text"]
+            # PingFang SC renders CJK punctuation correctly where HanziPen SC fails
+            punct_font = get_font(font_name, hw_size)
+
+            # Position and alignment: pass the right edge x so each line's
+            # right edge meets the same x as the metadata (right-aligned cluster).
+            # For center/left layouts, fall back to block-left positioning.
+            if anchor == "rt":
+                hw_pos       = (x, y)
+                hw_text_align = "right"
+            elif anchor == "mt":
+                hw_pos       = (max(0, x - hw_max_width // 2), y)
+                hw_text_align = "left"
+            else:
+                hw_pos       = (max(0, min(x, WIDTH - hw_max_width)), y)
+                hw_text_align = "left"
+
+            rgba_image = image.convert("RGBA") if image.mode != "RGBA" else image
+            rgba_image = render_handwritten_text(
+                rgba_image, hw_text, hw_pos, hw_style,
+                color=hw_color, font=hw_font, punct_font=punct_font,
+                text_align=hw_text_align,
+            )
+            image = rgba_image.convert("RGB")
+            print(f"  typo : handwritten_note ({len(hw_lines)} lines, size={hw_size})")
+        except Exception as hw_err:
+            print(f"  typo : handwritten_note failed ({hw_err}), using standard")
+            for i, line in enumerate(quote_lines):
+                draw.text((x, y), line, font=font_quote, fill=theme["text"], anchor=anchor)
+                y += measure_h(draw, line, font_quote)
+                if i < len(quote_lines) - 1:
+                    y += line_gap
+    else:
+        for i, line in enumerate(quote_lines):
+            draw.text((x, y), line, font=font_quote, fill=theme["text"], anchor=anchor)
+            y += measure_h(draw, line, font_quote)
+            if i < len(quote_lines) - 1:
+                y += line_gap
 
     # ── Save current wallpaper (overwritten each day) ────────────────────────
     os.makedirs(os.path.dirname(output_path), exist_ok=True)
