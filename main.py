@@ -68,6 +68,19 @@ def main():
     if weather_data is None:
         print("  weather.json not found — using context.json fallback")
 
+    # ── API key (needed for both photo-theme classification and the quote) ───
+    api_key = os.environ.get("OPENAI_API_KEY", "").strip()
+    if not api_key:
+        print("Error: OPENAI_API_KEY is not set.")
+        print("Run:  export OPENAI_API_KEY=your-key-here")
+        sys.exit(1)
+
+    smart_quotes = '""'''
+    if api_key[0] in smart_quotes or api_key[-1] in smart_quotes:
+        print("Error: OPENAI_API_KEY contains curly quotes. Re-set it without any quotes.")
+        print("Run:  export OPENAI_API_KEY=your-key-here")
+        sys.exit(1)
+
     print("Loading photos...")
     photos_data = load_photos()
     if photos_data is None:
@@ -77,6 +90,31 @@ def main():
     # render_wallpaper and generate_quote also resolve internally when called.
     weather = resolve_weather(context, weather_data)
     photos  = resolve_photos(context, photos_data)
+
+    # ── Photo theme ───────────────────────────────────────────────────────────
+    # The Shortcut exports the newest few photos to recent_photos/ — look at
+    # them with a vision-capable LLM and classify the overall theme. If there's
+    # nothing to look at (or the call fails), fall back to a lightweight local
+    # heuristic so the mood doesn't just default to "none" every day.
+    if photos_data is not None and photos_data.get("has_recent_photos"):
+        from photo_theme_engine import classify_theme_from_photos, infer_theme
+        from mood_engine import categorize_weather
+
+        print("Classifying photo theme...")
+        theme = classify_theme_from_photos(api_key)
+        if theme is not None:
+            print(f"  Vision classification: {theme}")
+        else:
+            theme = infer_theme(
+                photo_count=photos_data.get("photo_count", 0),
+                has_recent_photos=photos_data.get("has_recent_photos", False),
+                weather_category=categorize_weather(weather),
+            )
+            print(f"  Vision classification unavailable — heuristic guess: {theme}")
+
+        if theme != "none":
+            photos_data["theme"] = theme
+            photos["theme"]      = theme
 
     # ── Mood ──────────────────────────────────────────────────────────────────
     print("Determining mood...")
@@ -149,19 +187,6 @@ def main():
     except Exception as _bg_err:
         print(f"  Warning: background generation failed ({_bg_err})")
         print("  Renderer will use gradient fallback.")
-
-    # ── API key ───────────────────────────────────────────────────────────────
-    api_key = os.environ.get("OPENAI_API_KEY", "").strip()
-    if not api_key:
-        print("Error: OPENAI_API_KEY is not set.")
-        print("Run:  export OPENAI_API_KEY=your-key-here")
-        sys.exit(1)
-
-    smart_quotes = '""'''
-    if api_key[0] in smart_quotes or api_key[-1] in smart_quotes:
-        print("Error: OPENAI_API_KEY contains curly quotes. Re-set it without any quotes.")
-        print("Run:  export OPENAI_API_KEY=your-key-here")
-        sys.exit(1)
 
     # ── Generate quote ────────────────────────────────────────────────────────
     print("Generating quote...")

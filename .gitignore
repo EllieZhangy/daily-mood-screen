@@ -3,3 +3,5 @@ style_library/
 .env
 outputs/
 archive/
+tests/
+recent_photos/

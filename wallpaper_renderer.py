@@ -1,5 +1,6 @@
 import json
 import os
+import re
 import sys
 from datetime import date
 
@@ -248,6 +249,14 @@ _MOOD_ZH = {
     "sunny_movement":      "晴日出发",
     "sunny_stillness":     "晴日静好",
     "sunny_simplicity":    "晴日简单",
+    "cold_focus":          "冬日专注",
+    "cold_quietude":       "冬日宁静",
+    "rainy_focus":         "雨日专注",
+    "rainy_quietude":      "雨日宁静",
+    "cloudy_focus":        "阴日专注",
+    "cloudy_quietude":     "阴日宁静",
+    "sunny_focus":         "晴日专注",
+    "sunny_quietude":      "晴日宁静",
 }
 
 _THEME_ZH = {
@@ -256,6 +265,10 @@ _THEME_ZH = {
     "travel":       "旅行",
     "food":         "美食",
     "nature":       "自然",
+    "self":         "自我",
+    "memories":     "回忆",
+    "study":        "学习",
+    "quiet":        "宁静",
     "city":         "城市",
     "work":         "工作",
     "art":          "艺术",
@@ -329,14 +342,19 @@ _LOCATION_ZH = {
 }
 
 
+def _is_english(language: str) -> bool:
+    return language.lower().startswith("en")
+
+
 # ── Weather string builder ────────────────────────────────────────────────────
-def format_weather_str(weather: dict) -> str:
+def format_weather_str(weather: dict, language: str = "zh-CN") -> str:
     """
-    Build the weather metadata line shown on the wallpaper (Chinese).
+    Build the weather metadata line shown on the wallpaper.
 
     Examples:
-      weather.json present  →  "洛杉矶 · 晴 · 22℃"
-      context.json fallback →  "晴 · 22℃"
+      zh, weather.json present  →  "洛杉矶 · 晴 · 22℃"
+      zh, context.json fallback →  "晴 · 22℃"
+      en, weather.json present  →  "Los Angeles · Cloudy · 22°C"
     """
     parts = []
     location  = weather.get("location", "")
@@ -344,50 +362,68 @@ def format_weather_str(weather: dict) -> str:
     temp      = weather.get("temperature", "")
     unit      = weather.get("unit", "C")
 
-    if location:
-        parts.append(_LOCATION_ZH.get(location.lower(), location))
-    if condition:
-        zh = _CONDITION_ZH.get(condition.lower(), condition)
-        parts.append(zh)
-    if temp != "":
-        unit_glyph = {"C": "℃", "F": "℉"}.get(unit, f"°{unit}")
-        parts.append(f"{temp}{unit_glyph}")
+    if _is_english(language):
+        if location:
+            parts.append(location)
+        if condition:
+            parts.append(condition.replace("_", " ").title())
+        if temp != "":
+            parts.append(f"{temp}°{unit}")
+    else:
+        if location:
+            parts.append(_LOCATION_ZH.get(location.lower(), location))
+        if condition:
+            zh = _CONDITION_ZH.get(condition.lower(), condition)
+            parts.append(zh)
+        if temp != "":
+            unit_glyph = {"C": "℃", "F": "℉"}.get(unit, f"°{unit}")
+            parts.append(f"{temp}{unit_glyph}")
 
     return " · ".join(parts)
 
 
 # ── Photos string builder ─────────────────────────────────────────────────────
-def format_photos_str(photos: dict) -> str:
+def format_photos_str(photos: dict, language: str = "zh-CN") -> str:
     """
-    Build the photos metadata line shown below the weather line (Chinese).
+    Build the photos metadata line shown below the weather line.
 
     Examples:
-      theme=friends, count=6  →  "朋友 · 6 张照片"
-      theme=none, count=0     →  ""  (nothing drawn)
+      zh, theme=friends, count=6  →  "朋友 · 6 张照片"
+      en, theme=friends, count=6  →  "Friends · 6 photos"
+      theme=none, count=0         →  ""  (nothing drawn)
     """
     theme = photos.get("theme", "none")
     count = photos.get("photo_count", 0)
 
     parts = []
-    if theme and theme != "none":
-        zh_theme = _THEME_ZH.get(theme.lower(), theme)
-        parts.append(zh_theme)
-    if count:
-        parts.append(f"{count} 张照片")
+    if _is_english(language):
+        if theme and theme != "none":
+            parts.append(theme.replace("_", " ").title())
+        if count:
+            parts.append(f"{count} photo" if count == 1 else f"{count} photos")
+    else:
+        if theme and theme != "none":
+            zh_theme = _THEME_ZH.get(theme.lower(), theme)
+            parts.append(zh_theme)
+        if count:
+            parts.append(f"{count} 张照片")
 
     return " · ".join(parts)
 
 
 # ── Mood string builder ───────────────────────────────────────────────────────
-def format_mood_str(mood: dict) -> str:
+def format_mood_str(mood: dict, language: str = "zh-CN") -> str:
     """
-    Build the mood metadata line shown below the photos line (Chinese).
-    "cold_reunion" → "心情 · 寒日重逢"
+    Build the mood metadata line shown below the photos line.
+    "cold_reunion" → "心情 · 寒日重逢"  /  "Mood · Cold Reunion"
     Returns empty string if mood is empty.
     """
     mood_name = mood.get("mood", "")
     if not mood_name:
         return ""
+    if _is_english(language):
+        label = mood_name.replace("_", " ").title()
+        return f"Mood · {label}"
     label = _MOOD_ZH.get(mood_name, mood_name.replace("_", " ").title())
     return f"心情 · {label}"
 
@@ -456,13 +492,17 @@ def render_wallpaper(quote: str, context: dict, style: dict, weather: dict | Non
         if "text_secondary" in vs_palette: theme["meta"] = tuple(vs_palette["text_secondary"])
 
     # ── Build display strings ─────────────────────────────────────────────────
+    language         = context.get("language", "zh-CN")
     resolved_weather = resolve_weather(context, weather)
     resolved_photos  = resolve_photos(context, photos)
     resolved_mood    = mood if mood is not None else determine_mood(resolved_weather, resolved_photos)
-    today_str        = date.today().strftime("%Y年%m月%d日")
-    weather_str      = format_weather_str(resolved_weather)
-    photos_str       = format_photos_str(resolved_photos)
-    mood_str         = format_mood_str(resolved_mood)
+    if _is_english(language):
+        today_str    = date.today().strftime("%B %-d, %Y")
+    else:
+        today_str    = date.today().strftime("%Y年%m月%d日")
+    weather_str      = format_weather_str(resolved_weather, language)
+    photos_str       = format_photos_str(resolved_photos, language)
+    mood_str         = format_mood_str(resolved_mood, language)
 
     # ── Fonts ─────────────────────────────────────────────────────────────────
     font_quote = get_font(font_name, quote_size)
@@ -609,8 +649,12 @@ def render_wallpaper(quote: str, context: dict, style: dict, weather: dict | Non
                         hw_lines = _trial
                         break
 
-            # ── Validate: no characters may be dropped ────────────────────────
-            if "".join(hw_lines) != quote:
+            # ── Validate: no non-whitespace characters may be dropped ─────────
+            # Wrapping intentionally restructures whitespace (paragraph breaks
+            # collapse, word-boundary spaces become line breaks), so compare
+            # with whitespace stripped — only real content loss should fail this.
+            _strip_ws = lambda s: re.sub(r"\s+", "", s)
+            if _strip_ws("".join(hw_lines)) != _strip_ws(quote):
                 raise RuntimeError(
                     f"Typography engine dropped characters!\n"
                     f"  expected ({len(quote)}): {quote!r}\n"

@@ -271,27 +271,44 @@ def wrap_to_lines(text: str, font, max_width: int,
 
         current = ""
         last_punct_pos = -1   # index within `current` of last preferred break
+        last_space_pos = -1   # index within `current` of last word boundary (English etc.)
 
         for char in para:
             test = current + char
             if _measure(test) > max_width:
-                # Prefer breaking after the most recent CJK punctuation so
-                # the punctuation mark stays with its preceding phrase.
-                if last_punct_pos >= 0 and last_punct_pos < len(current) - 1:
+                # Prefer breaking at the most recent word boundary (space) so
+                # Latin-script words stay intact (e.g. "lingers" doesn't split
+                # into "li" / "ngers"). The space is kept as trailing whitespace
+                # on the current line (invisible when rendered) so no character
+                # is ever dropped — preserving the wrap guarantee below.
+                if last_space_pos >= 0:
+                    carry = current[last_space_pos + 1:]
+                    result.append(current[:last_space_pos + 1])
+                    current = carry + char
+                    last_punct_pos = -1
+                    last_space_pos = -1
+                # Otherwise prefer breaking after the most recent CJK punctuation
+                # so the punctuation mark stays with its preceding phrase.
+                elif last_punct_pos >= 0 and last_punct_pos < len(current) - 1:
                     carry = current[last_punct_pos + 1:]
                     result.append(current[:last_punct_pos + 1])
                     current = carry + char
                     last_punct_pos = -1
+                    last_space_pos = -1
                 elif current:
                     result.append(current)
                     current = char      # start new line — never discard char
                     last_punct_pos = -1
+                    last_space_pos = -1
                 else:
                     result.append(char) # single char wider than max_width
                     current = ""
                     last_punct_pos = -1
+                    last_space_pos = -1
             else:
                 current = test
+                if char == " ":
+                    last_space_pos = len(current) - 1
                 if char in _PREFER_BREAK_AFTER:
                     last_punct_pos = len(current) - 1
 

@@ -1,6 +1,6 @@
 {
   "location": "Los Angeles",
-  "condition": "cloudy",
-  "temperature": 12,
+  "condition": "sunny",
+  "temperature": 22,
   "unit": "C"
 }

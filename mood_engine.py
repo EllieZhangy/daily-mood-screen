@@ -47,6 +47,16 @@ MOOD_RULES = {
         "emotion_keywords": ["comfort", "simplicity", "daily warmth"],
         "visual_keywords":  ["steam rising", "warm bowl", "small rituals"],
     },
+    ("cold",   "study"):     {
+        "mood": "cold_focus",
+        "emotion_keywords": ["focus", "discipline", "quiet ambition"],
+        "visual_keywords":  ["desk lamp", "stacked books", "winter light through glass"],
+    },
+    ("cold",   "quiet"):     {
+        "mood": "cold_quietude",
+        "emotion_keywords": ["stillness", "solitude", "inward calm"],
+        "visual_keywords":  ["empty room", "soft lamplight", "winter silence"],
+    },
 
     ("rainy",  "friends"):   {
         "mood": "rainy_connection",
@@ -87,6 +97,16 @@ MOOD_RULES = {
         "mood": "rainy_comfort",
         "emotion_keywords": ["comfort", "warmth", "small pleasures"],
         "visual_keywords":  ["warm tea", "rain sound", "simple meal"],
+    },
+    ("rainy",  "study"):     {
+        "mood": "rainy_focus",
+        "emotion_keywords": ["concentration", "shelter", "steady rhythm"],
+        "visual_keywords":  ["rain on window", "open notebook", "soft lamp light"],
+    },
+    ("rainy",  "quiet"):     {
+        "mood": "rainy_quietude",
+        "emotion_keywords": ["calm", "introspection", "gentle solitude"],
+        "visual_keywords":  ["rain murmur", "still room", "grey window light"],
     },
 
     ("cloudy", "friends"):   {
@@ -129,6 +149,16 @@ MOOD_RULES = {
         "emotion_keywords": ["comfort", "simplicity", "daily ritual"],
         "visual_keywords":  ["warm kitchen", "soft light", "simple meal"],
     },
+    ("cloudy", "study"):     {
+        "mood": "cloudy_focus",
+        "emotion_keywords": ["focus", "calm", "quiet productivity"],
+        "visual_keywords":  ["grey daylight", "open books", "still desk"],
+    },
+    ("cloudy", "quiet"):     {
+        "mood": "cloudy_quietude",
+        "emotion_keywords": ["quiet", "calm", "ease"],
+        "visual_keywords":  ["soft grey light", "still air", "muted room"],
+    },
 
     ("sunny",  "friends"):   {
         "mood": "sunny_connection",
@@ -170,6 +200,16 @@ MOOD_RULES = {
         "emotion_keywords": ["simplicity", "daily life", "warmth"],
         "visual_keywords":  ["morning table", "sunlight", "small joy"],
     },
+    ("sunny",  "study"):     {
+        "mood": "sunny_focus",
+        "emotion_keywords": ["clarity", "motivation", "quiet energy"],
+        "visual_keywords":  ["sunlit desk", "open page", "morning light"],
+    },
+    ("sunny",  "quiet"):     {
+        "mood": "sunny_quietude",
+        "emotion_keywords": ["peace", "lightness", "quiet contentment"],
+        "visual_keywords":  ["soft sunlight", "still room", "open window"],
+    },
 }
 
 # ── Fallbacks used when the exact combination is not in MOOD_RULES ────────────
@@ -200,6 +240,8 @@ THEME_FALLBACKS = {
     "food":     "daily_warmth",
     "nature":   "calm_reflection",
     "memories": "nostalgia",
+    "study":    "focus",
+    "quiet":    "quietude",
     "none":     "solitude",
 }
 
