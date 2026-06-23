@@ -284,7 +284,7 @@ daily-mood-screen/
 │   │   ├── reference_zh.txt   # Chinese reference sentence examples
 │   │   ├── reference_en.txt   # English reference sentence examples
 │   │   ├── presets/           # Writing preset JSONs (zh_gentle, zh_rainy …)
-│   │   ├── authors/           # Author style JSONs (mu_xin, murakami …)
+│   │   ├── authors/           # Author style JSONs 
 │   │   └── themes/            # Theme JSONs (zh_solitude, zh_homecoming …)
 │   └── visual/
 │       ├── daily_mood_warm.json
