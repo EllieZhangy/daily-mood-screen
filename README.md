@@ -3,6 +3,7 @@
 A personal daily wallpaper generator for macOS. Every morning it reads your live local weather (including location), today's photos, and your mood — then generates a short poetic quote with AI and renders it over an AI-generated background, saving the result as your desktop wallpaper.
 
 ![Example wallpaper](assets/example_readme.png)
+<img width="2560" height="1440" alt="example_readme" src="https://github.com/user-attachments/assets/3953efd7-f27c-4388-930c-75a4861d310c" />
 
 ---
 
