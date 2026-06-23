@@ -5,7 +5,7 @@ A personal daily wallpaper generator for macOS. Every morning it reads your live
 <img
   src="https://github.com/user-attachments/assets/3953efd7-f27c-4388-930c-75a4861d310c"
   alt="Example Wallpaper"
-  width="800"
+  width="500"
 />
 
 ---
