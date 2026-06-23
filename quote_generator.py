@@ -9,6 +9,32 @@ from mood_engine import determine_mood
 
 SUPPORTED_LANGUAGES = {"zh-CN", "en-US"}
 
+_WRITING_DIR = os.path.join(os.path.dirname(__file__), "style_library", "writing")
+
+
+def _load_reference_sentences(language: str) -> list[str]:
+    """Load numbered reference sentences from reference_en.txt or reference_zh.txt."""
+    lang_code = "zh" if language == "zh-CN" else "en"
+    path = os.path.join(_WRITING_DIR, f"reference_{lang_code}.txt")
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            lines = f.readlines()
+        sentences = []
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            # Strip leading "N. " numbering
+            if line and line[0].isdigit():
+                dot = line.find(".")
+                if dot != -1:
+                    line = line[dot + 1:].strip()
+            if line:
+                sentences.append(line)
+        return sentences
+    except FileNotFoundError:
+        return []
+
 
 def load_context(path: str = "context.json") -> dict:
     with open(path, "r", encoding="utf-8") as f:
@@ -119,8 +145,6 @@ def build_prompt(context: dict, weather: dict, photos: dict, mood: dict, writing
     photo_line = f"{photo_count} recent photos, {photo_theme} theme"
 
     # ── Writing style block (injected from style_library when available) ──────
-    # This section gives the AI specific stylistic guidance, overriding the
-    # generic style requirements above with more precise instructions.
     writing_style_block = ""
     if writing_style:
         features    = "\n".join(f"  - {f}" for f in writing_style.get("features",    []))
@@ -138,6 +162,43 @@ Reference examples (study the style only — do not copy these):
 {examples}
 Core instruction: {instruction}"""
 
+    # ── Voice guide: language-specific ───────────────────────────────────────
+    if language == "zh-CN":
+        avoid_trailing = "Never trail off with 或许是、像是在、仿佛、好像、似乎 — use a real ending instead"
+        voice_patterns = """\
+Voice patterns to draw from (study the structure, never copy the line):
+  · 天色慢下来，人也该慢下来。         [nature mirrors human — no explanation]
+  · 晴天时爱晴，雨天时爱雨。           [symmetric pairs holding one whole truth]
+  · 流水不争光，争的是滔滔不绝。       [reversal landing — surprise at the end]
+  · 总有人在回家的路上，也总有人在等灯亮起。  [two mirrored human conditions]
+  · 天寒露重，望君保重。               [warmth with weight — not sentimental]
+  · 草木蔓生，春山可望。               [world-state opens into what becomes possible]
+  · 秋日薄暮，用菊花煮竹叶青，人与海棠俱醉。  [anchored in a specific sensory moment]
+
+Structural techniques:
+  · Let an observation of the world quietly imply something about people
+  · Use symmetric halves where each needs the other to be complete
+  · Surprise with where the sentence lands, not with decoration
+  · Live inside a concrete time: a season, a weather, a time of day
+  · Warmth comes from precision, not from warmth-words"""
+    else:
+        avoid_trailing = "Never trail off with 'perhaps', 'seems like', 'as if', 'maybe' — use a real ending instead"
+        ref_sentences = _load_reference_sentences(language)
+        if ref_sentences:
+            examples_block = "\n".join(f"  · {s}" for s in ref_sentences)
+        else:
+            examples_block = "  · (no reference sentences found)"
+        voice_patterns = f"""\
+Voice patterns to draw from (study the tone and directness, never copy the line):
+{examples_block}
+
+Structural techniques:
+  · Let the world's state imply something about people — without saying it
+  · Use two halves that complete each other: release one thing to claim another
+  · Redefine a familiar word or concept to break an assumption
+  · Land on a concrete action, image, or declaration — not an open question
+  · Warmth comes from honesty and precision, not from reassuring words"""
+
     prompt = f"""You are a poetic writer creating a daily mood quote for a personal screen wallpaper.
 
 Context for today:
@@ -153,23 +214,9 @@ General style:
 - Let the mood and visual atmosphere shape the quote
 - The quote should evoke a feeling, not give advice
 - Complete every thought — land on a clear image, observation, realization, or question
-- Never trail off with 或许是、像是在、仿佛、好像、似乎 — use a real ending instead
+- {avoid_trailing}
 
-Voice patterns to draw from (study the structure, never copy the line):
-  · 天色慢下来，人也该慢下来。         [nature mirrors human — no explanation]
-  · 晴天时爱晴，雨天时爱雨。           [symmetric pairs holding one whole truth]
-  · 流水不争光，争的是滔滔不绝。       [reversal landing — surprise at the end]
-  · 总有人在回家的路上，也总有人在等灯亮起。  [two mirrored human conditions]
-  · 天寒露重，望君保重。               [warmth with weight — not sentimental]
-  · 草木蔓生，春山可望。               [world-state opens into what becomes possible]
-  · 秋日薄暮，用菊花煮竹叶青，人与海棠俱醉。  [anchored in a specific sensory moment]
-
-Structural techniques:
-  · Let an observation of the world quietly imply something about people
-  · Use symmetric halves where each needs the other to be complete
-  · Surprise with where the sentence lands, not with decoration
-  · Live inside a concrete time: a season, a weather, a time of day
-  · Warmth comes from precision, not from warmth-words
+{voice_patterns}
 {writing_style_block}
 Format:
 - Output exactly 1 to 2 short lines

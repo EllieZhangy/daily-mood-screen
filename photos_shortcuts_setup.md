@@ -1,19 +1,26 @@
 # Apple Shortcuts Setup — Daily Mood Photos
 
-Use **Apple Shortcuts** on macOS to count recent photos and pick a theme.
-The shortcut writes `photos.json` directly, which `main.py` reads automatically.
-
-No face recognition. No image classification. Just a count and a category you choose.
+Use **Apple Shortcuts** on macOS to export today's photos for AI theme classification.
+The shortcut clears and refills `recent_photos/`, then writes `photos.json`.
+`main.py` reads the actual image files with a vision model to classify the theme automatically — no manual selection needed.
 
 ---
 
 ## What the Shortcut Produces
 
+**`recent_photos/`** — up to 5 of today's newest photos as JPEG files:
+```
+recent_photos/
+  photo_1750000000000.jpg
+  photo_1750000000123.jpg
+  ...
+```
+
+**`photos.json`** — count and presence flag only (no theme — the vision AI decides):
 ```json
 {
   "has_recent_photos": true,
-  "photo_count": 6,
-  "theme": "friends"
+  "photo_count": 6
 }
 ```
 
@@ -22,9 +29,8 @@ No face recognition. No image classification. Just a count and a category you ch
 ## Prerequisites
 
 - macOS 12 Monterey or later
-- Shortcuts app (pre-installed)
-- Daily Mood Screen project saved somewhere on your Mac
-- Photos app with your photos library
+- Shortcuts app → Settings → Advanced → **Allow Running Scripts** enabled
+- Daily Mood Screen project at `~/Desktop/daily-mood-screen/`
 
 ---
 
@@ -45,7 +51,6 @@ Add the following actions in order.
 | Sort by | Date Added — Newest First |
 | Limit | off |
 
-> Pulls every photo added or taken in the last 24 hours.
 > Change `1 Days` to `3 Days` if you photograph less frequently.
 
 ---
@@ -54,99 +59,126 @@ Add the following actions in order.
 
 **Action name:** `Count`
 
-- Input: the Photos result from Action 1
+- Input: Photos result from Action 1
 
-> Shortcuts saves the result as the magic variable **Count**.
+> Shortcuts saves this as the magic variable **Count**.
 
 ---
 
-### Action 3 — Set has_recent_photos
+### Action 3 — Set has\_recent\_photos
 
 **Action name:** `If`
 
 | Setting | Value |
 |---|---|
-| Input | Count (magic variable from Action 2) |
+| Input | Count (from Action 2) |
 | Condition | is greater than 0 |
 
 Inside **If**:
-- **Action:** `Set Variable`
-  - Name: `has_photos`
-  - Value: `true`
+- `Set Variable` → Name: `has_photos` → Value: `true`
 
 Inside **Otherwise**:
-- **Action:** `Set Variable`
-  - Name: `has_photos`
-  - Value: `false`
+- `Set Variable` → Name: `has_photos` → Value: `false`
 
 **Action:** `End If`
 
 ---
 
-### Action 4 — Choose a Theme
-
-**Action name:** `Choose from List`
-
-| Setting | Value |
-|---|---|
-| Prompt | What's the theme of your recent photos? |
-| Select Multiple | off |
-
-List items (add one per line):
-```
-friends
-travel
-family
-self
-food
-nature
-memories
-none
-```
-
-> The item you tap becomes the magic variable **Chosen Item**.
-
----
-
-### Action 5 — Build the JSON
-
-**Action name:** `Text`
-
-Type this into the text field, then replace each bracketed part
-with the matching Shortcuts variable using the variable picker (`{x}`):
-
-```
-{
-  "has_recent_photos": [has_photos],
-  "photo_count": [Count],
-  "theme": "[Chosen Item]"
-}
-```
-
-- `[has_photos]`   → Variable: **has_photos** (from Action 3)
-- `[Count]`        → Magic variable: **Count** (from Action 2)
-- `[Chosen Item]`  → Magic variable: **Chosen Item** (from Action 4)
-
-The result looks like:
-
-```json
-{
-  "has_recent_photos": true,
-  "photo_count": 6,
-  "theme": "friends"
-}
-```
-
----
-
-### Action 6 — Write photos.json
+### Action 4 — Clear and recreate recent\_photos/
 
 **Action name:** `Run Shell Script`
 
 | Setting | Value |
 |---|---|
 | Shell | /bin/zsh |
-| Input | Text from Action 5 |
+| Pass input as | (none) |
+
+Script:
+```bash
+rm -rf ~/Desktop/daily-mood-screen/recent_photos
+mkdir -p ~/Desktop/daily-mood-screen/recent_photos
+```
+
+> This ensures only today's photos are ever in the folder — yesterday's are wiped first.
+
+---
+
+### Action 5 — Limit to 5 newest photos
+
+**Action name:** `Get First Items`
+
+| Setting | Value |
+|---|---|
+| Input | Photos result from Action 1 |
+| Get | First **5** Items |
+
+> 5 is enough for reliable vision classification and keeps the API call fast.
+
+---
+
+### Action 6 — Save each photo to recent\_photos/
+
+**Action name:** `Repeat with each item in` [First Items from Action 5]
+
+Inside the repeat loop, add two actions:
+
+#### 6a — Convert to JPEG
+
+**Action name:** `Convert Image`
+
+| Setting | Value |
+|---|---|
+| Input | Repeat Item |
+| Format | JPEG |
+| Quality | Best |
+
+#### 6b — Write the file
+
+**Action name:** `Run Shell Script`
+
+| Setting | Value |
+|---|---|
+| Shell | /bin/zsh |
+| Input | Converted Image from Action 6a |
+| Pass input as | **stdin** |
+
+Script:
+```bash
+cat > ~/Desktop/daily-mood-screen/recent_photos/photo_$(date +%s%3N).jpg
+```
+
+> `%s%3N` appends milliseconds to the timestamp so each filename is unique even when photos are saved back-to-back.
+
+**Action:** `End Repeat`
+
+---
+
+### Action 7 — Build photos.json
+
+**Action name:** `Text`
+
+Type the JSON below, replacing bracketed parts with variables using the variable picker (`{x}`):
+
+```
+{
+  "has_recent_photos": [has_photos],
+  "photo_count": [Count]
+}
+```
+
+- `[has_photos]` → Variable: **has_photos** (from Action 3)
+- `[Count]`      → Magic variable: **Count** (from Action 2)
+
+---
+
+### Action 8 — Write photos.json
+
+**Action name:** `Run Shell Script`
+
+| Setting | Value |
+|---|---|
+| Shell | /bin/zsh |
+| Input | Text from Action 7 |
 | Pass input as | stdin |
 
 Script:
@@ -154,13 +186,9 @@ Script:
 cat > ~/Desktop/daily-mood-screen/photos.json
 ```
 
-> Adjust the path if your project folder is not on the Desktop.
-> Example for a different location:
-> `cat > ~/Projects/daily-mood-screen/photos.json`
-
 ---
 
-### Action 7 — Run the Pipeline (Optional)
+### Action 9 — Run the pipeline (Optional)
 
 **Action name:** `Run Shell Script`
 
@@ -176,118 +204,76 @@ cd ~/Desktop/daily-mood-screen
 python main.py
 ```
 
-> This runs the full pipeline right after the theme is chosen.
-> Requires `OPENAI_API_KEY` and `WEATHERAPI_KEY` to be set in your shell profile.
+> Requires `OPENAI_API_KEY` and `WEATHERAPI_KEY` in your shell profile.
 
 ---
 
 ## How to Run the Shortcut
 
-**From Shortcuts app:** click ▶ Run
+**From Spotlight:** `Cmd + Space` → type **Daily Mood Photos** → Enter
 
 **From menu bar:**
-1. Open Shortcuts → Settings → Advanced
-2. Enable "Allow Running Scripts"
-3. Right-click the shortcut → Add to Menu Bar
+1. Shortcuts → Settings → Advanced → Enable "Allow Running Scripts"
+2. Right-click the shortcut → Add to Menu Bar
 
-**From Spotlight:**
-- Press `Cmd + Space`, type `Daily Mood Photos`, press Enter
-
-**On a schedule (optional):**
-- Use the macOS Automator app with a Calendar alarm
-- Or add a cron job: `0 8 * * * shortcuts run "Daily Mood Photos"`
+**Best time to run:** before 8 AM so the launchd job has fresh photos when it fires.
 
 ---
 
-## How photos.json Is Generated
+## How the Full Pipeline Uses It
 
 ```
-Shortcuts app
-  │
-  ├─ Find Photos (last 24h)  →  photo_count
-  ├─ If count > 0            →  has_photos = true / false
-  ├─ Choose from List        →  theme
-  ├─ Text (build JSON)       →  JSON string
-  └─ Run Shell Script        →  writes photos.json
+Shortcut runs
+  ├─ Clears recent_photos/
+  ├─ Saves up to 5 today's photos → recent_photos/*.jpg
+  └─ Writes photos.json  { has_recent_photos, photo_count }
+
+main.py runs (8 AM or manual)
+  ├─ load_photos()              reads photos.json (staleness-checked: today only)
+  ├─ classify_theme_from_photos()
+  │     ├─ reads recent_photos/*.jpg (newest 5)
+  │     ├─ downsizes via sips
+  │     └─ asks vision model → theme  (friends / nature / food / travel / …)
+  │   fallback: infer_theme()  (count + time of day + weather heuristic)
+  ├─ determine_mood()           weather × theme → one of 32 moods
+  ├─ generate_quote()           mood shapes the AI prompt
+  └─ render_wallpaper()         theme shown in metadata line
 ```
 
 ---
 
-## How main.py Uses It Automatically
+## photos.json Examples
 
-```
-python main.py
-  │
-  ├─ load_photos()        reads photos.json
-  ├─ resolve_photos()     uses photos.json (falls back to context.json if missing)
-  ├─ determine_mood()     theme shapes the mood direction
-  ├─ generate_quote()     mood influences the OpenAI prompt
-  └─ render_wallpaper()   theme appears in the metadata line
-```
-
-No changes to `main.py` needed — it already reads `photos.json` on every run.
-
----
-
-## Supported Themes
-
-| Theme | Mood direction |
-|---|---|
-| `friends` | nostalgia, connection, reunion |
-| `travel` | movement, discovery, distance |
-| `family` | warmth, belonging, roots |
-| `self` | introspection, stillness, solitude |
-| `food` | daily life, simplicity, warmth |
-| `nature` | calm, seasons, reflection |
-| `memories` | tenderness, time, nostalgia |
-| `none` | quiet moments, solitude |
-
----
-
-## Example photos.json Files
-
-**Friends gathering**
+**Active day with photos:**
 ```json
 {
   "has_recent_photos": true,
-  "photo_count": 12,
-  "theme": "friends"
+  "photo_count": 8
 }
 ```
 
-**Travel day**
-```json
-{
-  "has_recent_photos": true,
-  "photo_count": 34,
-  "theme": "travel"
-}
-```
-
-**Nature walk**
-```json
-{
-  "has_recent_photos": true,
-  "photo_count": 8,
-  "theme": "nature"
-}
-```
-
-**Quiet day — no photos taken**
+**Quiet day — no photos taken:**
 ```json
 {
   "has_recent_photos": false,
-  "photo_count": 0,
-  "theme": "none"
+  "photo_count": 0
 }
 ```
 
+> No `theme` field is needed. The vision classifier in `photo_theme_engine.py` reads
+> the actual image files and returns one of:
+> `friends` · `nature` · `food` · `travel` · `family` · `self` · `memories` · `study` · `none`
+>
+> If `recent_photos/` is empty or the vision call fails, a local heuristic
+> (`infer_theme`) guesses from photo count, time of day, and weather.
+
 ---
 
-## Changing Your Location
+## Troubleshooting
 
-To change the look-back window from 1 day to 3 days,
-edit Action 1: `Date is in the last` → change `1` to `3`.
-
-To add a new theme, add a new line to the list in Action 4,
-then add a matching entry to `THEME_MOODS` in `mood_engine.py`.
+| Problem | Fix |
+|---|---|
+| Photos not appearing in `recent_photos/` | Confirm "Allow Running Scripts" is on in Shortcuts → Settings → Advanced |
+| `photos.json` shows `"has_recent_photos": false` despite taking photos | The shortcut looks back only 1 day — change Action 1 filter to 3 Days |
+| Vision classification always returns `none` | Check `OPENAI_API_KEY` is set; check `recent_photos/` actually contains `.jpg` files |
+| Filenames collide | The `%s%3N` timestamp has ms precision — collision would require saving >1000 photos/second |

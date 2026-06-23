@@ -1,7 +1,30 @@
+# macOS
 .DS_Store
-style_library/
+
+# Personal data & live state
 .env
+city.txt
+context.json
+weather.json
+photos.json
+
+# Style library (personal reference sentences, author presets, visual configs)
+style_library/
+
+# Generated output
+output/
 outputs/
 archive/
+assets/
+
+# Logs
+logs/
+
+# Utility scripts
+generate_example.py
+
+# Runtime
 tests/
 recent_photos/
+__pycache__/
+*.pyc
