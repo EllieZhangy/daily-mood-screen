@@ -1,6 +1,6 @@
 # Daily Mood Screen
 
-A personal daily wallpaper generator for macOS. Every morning it reads your live local weather (including location), today's photos, and your mood — then generates a short poetic quote with AI and renders it over an AI-generated background, saving the result as your desktop wallpaper.
+A personal daily wallpaper generator for macOS. Every morning it reads your live local weather (including location), today's photos, and your mood — then generates a short poetic quote with AI and renders it over an AI-generated background, saving the result as your desktop wallpaper. Currently supports English and Chinese.
 
 <img
   src="https://github.com/user-attachments/assets/3953efd7-f27c-4388-930c-75a4861d310c"
