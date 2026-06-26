@@ -1,5 +1,3 @@
-<img width="1672" height="941" alt="ChatGPT Image Jun 26, 2026, 08_50_05 AM" src="https://github.com/user-attachments/assets/a4506cfe-b564-4779-b359-fa752168f6e6" />
-<img width="1672" height="941" alt="ChatGPT Image Jun 26, 2026, 08_50_05 AM" src="https://github.com/user-attachments/assets/d35dfdf0-cd92-4b4c-bb99-0c13506029de" />
 # Daily Mood Screen
 
 A personal daily wallpaper generator for macOS. Every morning it reads your live local weather (including location), today's photos, and your mood — then generates a short poetic quote with AI and renders it over an AI-generated background, saving the result as your desktop wallpaper. Currently supports English and Chinese.
