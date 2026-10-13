@@ -202,6 +202,7 @@ Daily-Mood-Screen/
 
 ## Selected work
 
+- [Ming Oracle](https://ming-oracle-eta.vercel.app/) — a bilingual AI experience combining computed BaZi structure with symbolic personal reflection.
 - [AI Driving School](https://elliezhangy.github.io/ai-driving-school/) — a voice- and text-controlled Chinese parking game.
-- [Memory Studio](https://github.com/EllieZhangy/my-ai-poster-skills) — a photo-to-poster web app with reusable visual styles.
+- [Memory Studio](https://github.com/EllieZhangy/memory-studio) — a photo-to-poster web app with reusable visual styles.
 - [Radiology Impression Prediction](https://github.com/EllieZhangy/LLM-Based-Impression-Prediction-from-Radiology-Reports) — an LLM research project for radiology report impression generation.
